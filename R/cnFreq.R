@@ -50,25 +50,19 @@
 #' cnFreq(LucCNseg)
 #' @export
 
-cnFreq <- function(x, CN_low_cutoff=1.5, CN_high_cutoff=2.5, plot_title=NULL,
-                   CN_Loss_colour='#002EB8', CN_Gain_colour='#A30000',
-                   x_title_size=12, y_title_size=12, facet_lab_size=10,
-                   plotLayer=NULL, plotType="proportion", genome="hg19",
-                   plotChr=NULL, out="plot")
-{
-    # Perform quality check on input data
-    x <- cnFreq_qual(x)
+gainOrLoss <- function(x) {
     samples <- unique(x$sample)
-
+    CN_low_cutoff <- median(x$low)
+    CN_high_cutoff <- median(x$high)
     # Calculate a columns of Observed CN gains/losses/and obs samples in the
     # cohort for each segment
     gainFreq <- function(x){length(x[x >= CN_high_cutoff])}
-    gainFrequency <- aggregate(segmean ~ chromosome + start + end, data=x, gainFreq)$segmean
+    gainFrequency <- aggregate(segmean ~ chromosome + start + end + type, data=x, gainFreq)$segmean
     
     lossFreq <- function(x){length(x[x <= CN_low_cutoff])}
-    lossFrequency <- aggregate(segmean ~ chromosome + start + end, data=x, lossFreq)$segmean
+    lossFrequency <- aggregate(segmean ~ chromosome + start + end + type, data=x, lossFreq)$segmean
     
-    x <- aggregate(segmean ~ chromosome + start + end, data=x, length)
+    x <- aggregate(segmean ~ chromosome + start + end + type, data=x, length)
     colnames(x)[which(colnames(x) %in% "segmean")] <- "sampleFrequency"
     x$gainFrequency <- gainFrequency
     x$lossFrequency <- lossFrequency
@@ -82,9 +76,28 @@ cnFreq <- function(x, CN_low_cutoff=1.5, CN_high_cutoff=2.5, plot_title=NULL,
     }
     
     # Calculate the proportion
-    x$gainProportion <- x$gainFrequency/length(samples)
-    x$lossProportion <- x$lossFrequency/length(samples)
-    
+    x$gainProportion <- 100*x$gainFrequency/length(samples)
+    x$lossProportion <- 100*x$lossFrequency/length(samples)
+    return (x)
+}
+
+cnFreq <- function(x, CN_low_cutoff=1.5, CN_high_cutoff=2.5, plot_title=NULL,
+                   CN_Loss_colour='#002EB8', CN_Gain_colour='#A30000',
+                   x_title_size=12, y_title_size=12, facet_lab_size=10,
+                   plotLayer=NULL, plotType="proportion", genome="hg19",
+                   plotChr=NULL, out="plot", YMAX=NULL)
+{
+    # Perform quality check on input data
+    x <- cnFreq_qual(x)
+    #samples <- unique(x$sample)
+    #x <- gainOrLoss(x)
+    types <- unique(x$type)
+    df <- gainOrLoss(subset(x, type == types[1]))
+    for(i in 2:length(types)) {
+        df2 <- gainOrLoss(subset(x, type == types[i]))
+        df <- rbind(df,df2)
+    }
+    x <- df
     # get the dummy data for plot boundaries
     preloaded <- c("hg38", "hg19", "mm10", "mm9", "rn5")
     if(any(genome == preloaded)){
@@ -109,13 +122,14 @@ cnFreq <- function(x, CN_low_cutoff=1.5, CN_high_cutoff=2.5, plot_title=NULL,
         warning(memo)
     }
     
+    #remove chr from chromosome
+    UCSC_Chr_pos$chromosome <- gsub("chr","",UCSC_Chr_pos$chromosome)
     dummy_data <- lapply(unique(x$sample),
                          function(sample, chr_pos) cbind(chr_pos, sample),
                          UCSC_Chr_pos)
     dummy_data <- do.call("rbind", dummy_data)
     chr_order <- gtools::mixedsort(unique(dummy_data$chromosome))
     dummy_data$chromosome <- factor(dummy_data$chromosome, levels=chr_order)
-    
     # select chromosomes to plot
     if(!is.null(plotChr)){
         if(any(!plotChr %in% dummy_data$chromosome)) {
@@ -140,8 +154,7 @@ cnFreq <- function(x, CN_low_cutoff=1.5, CN_high_cutoff=2.5, plot_title=NULL,
                            x_lab_size=x_title_size,
                            y_lab_size=y_title_size,
                            facet_lab_size=facet_lab_size,
-                           plotLayer=plotLayer)
-    
+                           plotLayer=plotLayer,YMAX)
     # Decide what to output
     output <- multi_selectOut(data=list("data"=x), plot=p1, out=out)
     return(output)
