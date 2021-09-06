@@ -25,7 +25,7 @@
 cnFreq_buildMain <- function(x, plotType, dummy_data, plot_title=NULL,
                              CN_low_colour='#002EB8', CN_high_colour='#A30000',
                              x_lab_size=12, y_lab_size=12, facet_lab_size=10,
-                             plotLayer=NULL)
+                             plotLayer=NULL, YMAX=NULL)
 {
     # Transform losses to be negative values for plotting purposes
     x$lossFrequency <- -1*x$lossFrequency
@@ -35,23 +35,37 @@ cnFreq_buildMain <- function(x, plotType, dummy_data, plot_title=NULL,
     theme <- theme(strip.text.x=element_text(size=facet_lab_size),
                    axis.text.x=element_blank(),
                    axis.ticks.x=element_blank(),
-                   legend.position='right',
+                   legend.position = 'bottom',
+                   legend.text = element_text(size = 8, angle = 0),
+                   legend.title=element_text(size=10),
+                   legend.key.size = unit(0.3, "cm"),
                    axis.title.x=element_text(size=x_lab_size, face='bold'),
                    axis.title.y=element_text(size=y_lab_size, face='bold'),
                    panel.grid.major.x=element_blank(),
-                   panel.grid.minor.x=element_blank())
+                   panel.grid.minor.x=element_blank(),
+                   panel.spacing.x=unit(0.1, "lines"))
     facet <- facet_grid(. ~ chromosome, scales='free', space='free')
-    xlabel <- xlab('Chromosomes')
+    
+    xlabel <- xlab(paste('Chromosomes(',genome,')',sep=""))
     
     # Choose whether to plot aesthetics for proportion or frequency
     if(grepl("^PROP", plotType, ignore.case=TRUE)){
-        ylabel <- ylab("Proportion of Copy Number Gains/Losses")
-        ymax <- 1
+        ylabel <- ylab("Proportion(%) of Copy Number Gains/Losses")
+        if (is.null(YMAX)) {
+            ymax <- 100
+        } else {
+            ymax <- YMAX
+        }
         x$gain <- x$gainProportion
         x$loss <- x$lossProportion 
     } else if(grepl("^FREQ", plotType, ignore.case=TRUE)){
         ylabel <- ylab("Frequency of Copy Number Gains/Losses")
-        ymax <- max(as.numeric(as.character(x$sampleFrequency)), na.rm=TRUE)
+        if (!is.null(YMAX)) {
+            ymax <- YMAX
+        } else {
+            ymax <- max(as.numeric(as.character(x$sampleFrequency)), na.rm=TRUE)
+        }
+        
         x$gain <- x$gainFrequency
         x$loss <- x$lossFrequency 
     } else {
@@ -66,19 +80,19 @@ cnFreq_buildMain <- function(x, plotType, dummy_data, plot_title=NULL,
                                     xmax='end',
                                     ymin=-1*ymax,
                                     ymax=ymax)) + geom_rect(alpha=0) +
-        scale_x_continuous(expand=c(0,0)) + scale_y_continuous(expand=c(0,0))
-    
+        scale_x_continuous(expand=c(0,0)) + scale_y_continuous(expand=c(0,0)) + 
+        scale_fill_manual(name="Meningiomas",values = c(ANM="#FF3333", ATM="#009900", CHOM="#00CCCC",MNG="#B266FF"))
     # add copy number data 
     p1 <- p1 + geom_rect(data=x, mapping=aes_string(xmin='start',
                                                     xmax='end',
                                                     ymin='loss',
-                                                    ymax=0), fill=CN_low_colour)
+                                                    ymax=0,fill='type'),alpha = 0.75)
     p1 <- p1 + geom_rect(data=x, mapping=aes_string(xmin='start',
                                                     xmax='end', 
                                                     ymin=0,
-                                                    ymax='gain'), fill=CN_high_colour)
-    
-    p1 <- p1 + geom_hline(aes(yintercept=0), linetype="dotted")
+                                                    ymax='gain',fill='type'), alpha = 0.75)
+
+    p1 <- p1 + geom_hline(aes(yintercept=0), linetype="dotted") 
 
     # build the plot
     p1 <- p1 + ylabel + xlabel + facet + theme_bw() + theme
@@ -92,7 +106,7 @@ cnFreq_buildMain <- function(x, plotType, dummy_data, plot_title=NULL,
     # if title is supplied plot it
     if(!is.null(plot_title))
     {
-        p1 <- p1 + ggtitle(plot_title)
+        p1 <- p1 + ggtitle(plot_title) 
     }
     
     return(p1)
