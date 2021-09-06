@@ -39,7 +39,9 @@ cnFreq_qual <- function(x)
         x$end <- as.integer(as.character(x$end))
         x$segmean <- as.numeric(as.character(x$segmean))
         x$sample <- as.factor(x$sample)
-        
+        x$type <- as.factor(x$type)
+        x$low <- as.numeric(as.character(x$low))
+        x$high <- as.numeric(as.character(x$high))
         # make sure windows are consistent if not disjoin them
         tmp <- split(x, x$sample)
         tmp_vec <- tmp[[1]]$end
@@ -68,12 +70,13 @@ cnFreq_qual <- function(x)
         memo <- paste0("Did not detect the prefix \"chr\" in the chromosome",
                        " column of x... adding prefix")
         message(memo)
-        x$chromosome <- paste0("chr", x$chromosome)
+        #x$chromosome <- paste0("chr", x$chromosome)
         x$chromosome <- as.factor(x$chromosome)
     } else if(all(grepl("^chr", x$chromosome))) {
         memo <- paste0("Detected \"chr\" in the chromosome column of x...",
                        " proceeding")
         message(memo)
+        x$chromosome <- gsub("chr","", x$chromosome)
     } else {
         memo <- paste0("Detected unknown or mixed prefixes in the chromosome ",
                        " column of x, should either have a chr prefix or ",
